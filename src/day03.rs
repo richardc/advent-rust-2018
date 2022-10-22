@@ -29,6 +29,12 @@ impl std::str::FromStr for Claim {
     }
 }
 
+impl Claim {
+    fn region(&self) -> impl ndarray::SliceArg<Ix2> {
+        s![self.x..self.x + self.w, self.y..self.y + self.h]
+    }
+}
+
 #[aoc_generator(day3)]
 fn generate(input: &str) -> Vec<Claim> {
     input.lines().map(|l| l.parse().unwrap()).collect()
@@ -37,8 +43,7 @@ fn generate(input: &str) -> Vec<Claim> {
 fn mark_fabric(claims: &[Claim]) -> Array2<u32> {
     let mut fabric: Array2<u32> = Array2::zeros((1000, 1000));
     for claim in claims {
-        let mut region =
-            fabric.slice_mut(s![claim.x..claim.x + claim.w, claim.y..claim.y + claim.h]);
+        let mut region = fabric.slice_mut(claim.region());
         region += 1;
     }
     fabric
@@ -59,7 +64,7 @@ fn test_solve() {
 fn solve2(claims: &[Claim]) -> usize {
     let fabric = mark_fabric(claims);
     for claim in claims {
-        let region = fabric.slice(s![claim.x..claim.x + claim.w, claim.y..claim.y + claim.h]);
+        let region = fabric.slice(claim.region());
         if region.iter().all(|&v| v == 1) {
             return claim.id;
         }
