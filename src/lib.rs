@@ -10,5 +10,6 @@ extern crate pretty_assertions;
 extern crate test_case;
 
 mod day01;
+mod day02;
 
 aoc_lib! { year = 2018 }
