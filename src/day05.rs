@@ -63,3 +63,21 @@ fn _stable_length(s: &str) -> usize {
     assert_eq!(original, retain);
     retain
 }
+
+#[aoc(day5, part2)]
+fn solve2(s: &str) -> usize {
+    ('a'..='z')
+        .map(|c| {
+            let mut test: Vec<u8> = s.as_bytes().to_vec();
+            test.retain(|b| b.to_ascii_lowercase() != c as u8);
+            stable_length_retain(std::str::from_utf8(&test).unwrap())
+        })
+        .min()
+        .unwrap()
+}
+
+#[test_case("dabAcCaCBAcCcaDA" => 4)]
+#[cfg(test)]
+fn test_solve2(s: &str) -> usize {
+    solve2(s)
+}
