@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use itertools::Itertools;
+use itertools::{iproduct, Itertools};
 use ndarray::prelude::*;
 
 struct Point {
@@ -68,4 +68,31 @@ fn solve(points: &[Point]) -> usize {
 #[test]
 fn test_solve() {
     assert_eq!(solve(&generate(include_str!("day06_example.txt"))), 17)
+}
+
+#[aoc(day6, part2)]
+fn solve2(points: &[Point]) -> usize {
+    region_sum_below(10000, points)
+}
+
+fn region_sum_below(limit: usize, points: &[Point]) -> usize {
+    let max_x = points.iter().map(|p| p.x).max().unwrap();
+    let max_y = points.iter().map(|p| p.y).max().unwrap();
+
+    let mut inside = 0;
+    for (x, y) in iproduct!(0..=max_x, 0..=max_y) {
+        if points.iter().map(|p| p.distance_to(x, y)).sum::<usize>() < limit {
+            inside += 1
+        }
+    }
+    inside
+}
+
+#[cfg(test)]
+#[test]
+fn test_region_sum_below() {
+    assert_eq!(
+        region_sum_below(32, &generate(include_str!("day06_example.txt"))),
+        16
+    )
 }
