@@ -61,9 +61,13 @@ impl Guard {
         self.minutes.iter().sum()
     }
 
+    fn max_minute(&self) -> usize {
+        *self.minutes.iter().max().unwrap()
+    }
+
     fn common_minute(&self) -> usize {
-        let max = self.minutes.iter().max().unwrap();
-        self.minutes.iter().position(|v| v == max).unwrap()
+        let max = self.max_minute();
+        self.minutes.iter().position(|&v| v == max).unwrap()
     }
 }
 
@@ -72,8 +76,10 @@ fn generate(input: &str) -> Vec<Event> {
     input.lines().sorted().map(|l| l.parse().unwrap()).collect()
 }
 
-#[aoc(day4, part1)]
-fn solve(events: &[Event]) -> usize {
+fn exploit_weakest_guard(
+    events: &[Event],
+    weakest: fn(&Guard, &Guard) -> std::cmp::Ordering,
+) -> usize {
     let mut guards: HashMap<usize, Guard> = HashMap::new();
     let mut guard = 0;
     let mut start = 0;
@@ -93,16 +99,35 @@ fn solve(events: &[Event]) -> usize {
             }
         }
     }
+
     guards
         .iter()
-        .sorted_by(|(_, av), (_, bv)| Ord::cmp(&bv.time_sleeping(), &av.time_sleeping()))
+        .sorted_by(|(_, av), (_, bv)| weakest(av, bv))
         .map(|(&k, v)| k * v.common_minute() as usize)
         .next()
         .unwrap()
+}
+
+#[aoc(day4, part1)]
+fn solve(events: &[Event]) -> usize {
+    exploit_weakest_guard(events, |a, b| {
+        Ord::cmp(&b.time_sleeping(), &a.time_sleeping())
+    })
 }
 
 #[cfg(test)]
 #[test]
 fn test_solve() {
     assert_eq!(solve(&generate(include_str!("day04_example.txt"))), 240)
+}
+
+#[aoc(day4, part2)]
+fn solve2(events: &[Event]) -> usize {
+    exploit_weakest_guard(events, |a, b| Ord::cmp(&b.max_minute(), &a.max_minute()))
+}
+
+#[cfg(test)]
+#[test]
+fn test_solve2() {
+    assert_eq!(solve2(&generate(include_str!("day04_example.txt"))), 4455)
 }
