@@ -30,21 +30,19 @@ fn stable_length_original(s: &str) -> usize {
 fn stable_length_retain(s: &str) -> usize {
     let mut elements = s.as_bytes().to_vec();
     loop {
-        let mut keep = elements.iter().map(|_| true).collect_vec();
         let mut i = 0;
         while i < elements.len() - 1 {
             if elements[i].to_ascii_lowercase() == elements[i + 1].to_ascii_lowercase()
                 && elements[i] != elements[i + 1]
             {
-                keep[i] = false;
-                keep[i + 1] = false;
+                elements[i] = 0;
+                elements[i + 1] = 0;
                 i += 1;
             }
             i += 1;
         }
         let before = elements.len();
-        let mut keeping = keep.iter();
-        elements.retain(|_| *keeping.next().unwrap());
+        elements.retain(|&b| b != 0);
         if elements.is_empty() || elements.len() == before {
             return elements.len();
         }
