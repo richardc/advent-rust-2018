@@ -63,6 +63,58 @@ impl Graph {
             }
         }
     }
+
+    fn lexical_topological_scheduler(&self, elves: usize, overhead: usize) -> usize {
+        let mut deps: HashMap<Node, HashSet<Node>> = HashMap::new();
+        for edge in &self.edges {
+            deps.entry(edge.0).or_default();
+            deps.entry(edge.1).or_default().insert(edge.0);
+        }
+
+        let mut done: HashSet<Node> = HashSet::new();
+        let mut working: HashMap<Node, usize> = HashMap::new();
+        let mut time = 0;
+
+        loop {
+            let startable = deps
+                .iter()
+                .filter_map(|(&n, deps)| {
+                    if !working.contains_key(&n)
+                        && !done.contains(&n)
+                        && deps.iter().all(|d| done.contains(d))
+                    {
+                        Some(n)
+                    } else {
+                        None
+                    }
+                })
+                .sorted();
+
+            for job in startable {
+                if working.len() == elves {
+                    break;
+                }
+                let duration = overhead + job as usize - b'A' as usize + 1; // 'A' == 1...
+                working.insert(job, time + duration);
+            }
+
+            if working.is_empty() {
+                return time;
+            }
+
+            // Find the elf that finishes next, and set the time to then
+            let soonest = *working.values().min().unwrap();
+            time = soonest;
+
+            // Work is done, housekeeping, then reschedule
+            working.iter().for_each(|(&k, &v)| {
+                if v == time {
+                    done.insert(k);
+                }
+            });
+            working.retain(|_, &mut v| v != time);
+        }
+    }
 }
 
 #[aoc_generator(day7)]
@@ -82,4 +134,18 @@ fn test_solve() {
         solve(&generate(include_str!("day07_example.txt"))),
         "CABDFE"
     )
+}
+
+#[aoc(day7, part2)]
+fn solve2(graph: &Graph) -> usize {
+    graph.lexical_topological_scheduler(5, 60)
+}
+
+#[cfg(test)]
+#[test]
+fn test_solve2() {
+    assert_eq!(
+        generate(include_str!("day07_example.txt")).lexical_topological_scheduler(2, 0),
+        15
+    );
 }
