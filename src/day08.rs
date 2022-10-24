@@ -14,6 +14,20 @@ impl Node {
             .sum::<Value>()
             + self.metadata.iter().sum::<Value>()
     }
+
+    fn value(&self) -> Value {
+        if self.children.is_empty() {
+            return self.metadata.iter().sum();
+        }
+        self.metadata
+            .iter()
+            .map(|&i| match i {
+                0 => 0,
+                _ if i > self.children.len() => 0,
+                _ => self.children[i - 1].value(),
+            })
+            .sum()
+    }
 }
 
 fn parse_node(values: &[Value]) -> (Node, usize) {
@@ -52,4 +66,15 @@ fn solve(root: &Node) -> Value {
 #[test]
 fn test_solve() {
     assert_eq!(solve(&generate("2 3 0 3 10 11 12 1 1 0 1 99 2 1 1 2")), 138)
+}
+
+#[aoc(day8, part2)]
+fn solve2(root: &Node) -> Value {
+    root.value()
+}
+
+#[cfg(test)]
+#[test]
+fn test_solve2() {
+    assert_eq!(solve2(&generate("2 3 0 3 10 11 12 1 1 0 1 99 2 1 1 2")), 66)
 }
