@@ -1,12 +1,22 @@
 use std::collections::VecDeque;
 
-#[aoc(day9, part1)]
-fn solve(s: &str) -> usize {
+#[aoc_generator(day9)]
+fn generate(s: &str) -> [usize; 2] {
     let chunks: Vec<_> = s.split_ascii_whitespace().collect();
     let players = chunks[0].parse().unwrap();
     let last_marble = chunks[6].parse().unwrap();
 
+    [players, last_marble]
+}
+
+#[aoc(day9, part1)]
+fn solve(&[players, last_marble]: &[usize; 2]) -> usize {
     winning_score(players, last_marble)
+}
+
+#[aoc(day9, part2)]
+fn solve2(&[players, last_marble]: &[usize; 2]) -> usize {
+    winning_score(players, last_marble * 100)
 }
 
 fn winning_score(players: usize, last_marble: usize) -> usize {
