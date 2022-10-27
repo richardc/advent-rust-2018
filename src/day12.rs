@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use itertools::Itertools;
 
@@ -91,4 +91,26 @@ fn solve(plants: &Plants) -> i64 {
 #[test]
 fn test_solve() {
     assert_eq!(solve(&generate(include_str!("day12_example.txt"))), 325);
+}
+
+#[aoc(day12, part2)]
+fn solve2(plants: &Plants) -> i64 {
+    let mut plants = plants.clone();
+    let goal = 50_000_000_000;
+    let mut diffs = VecDeque::from([0; 5]);
+    let mut last = plants.score();
+    for step in 1.. {
+        plants.step();
+        let score = plants.score();
+        let diff = score - last;
+        last = score;
+        diffs.pop_front();
+        diffs.push_back(diff);
+        if diffs.iter().all(|&x| x == diff) {
+            // We've stabilised into a linear relationship,
+            // so now we can just calculate
+            return (goal - step) * diff + score;
+        }
+    }
+    unreachable!()
 }
