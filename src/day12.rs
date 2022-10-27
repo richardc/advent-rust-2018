@@ -38,7 +38,7 @@ impl std::str::FromStr for Plants {
                         .collect_vec()
                         .try_into()
                         .unwrap(),
-                    state.chars().next().unwrap() == '#',
+                    state.starts_with('#'),
                 )
             })
             .collect();
