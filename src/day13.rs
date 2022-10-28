@@ -138,7 +138,7 @@ impl std::fmt::Display for Railway {
                     write!(f, "{}", c)?;
                 }
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         Ok(())
     }
