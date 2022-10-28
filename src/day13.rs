@@ -63,6 +63,7 @@ impl std::fmt::Display for Direction {
 
 #[derive(Debug, Clone)]
 struct Cart {
+    id: usize,
     row: usize,
     col: usize,
     facing: Direction,
@@ -70,8 +71,9 @@ struct Cart {
 }
 
 impl Cart {
-    fn new(row: usize, col: usize, facing: Direction) -> Self {
+    fn new(id: usize, row: usize, col: usize, facing: Direction) -> Self {
         Self {
+            id,
             row,
             col,
             facing,
@@ -100,11 +102,13 @@ impl std::str::FromStr for Railway {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let mut map = Matrix::from_rows(input.lines().map(|l| l.chars()))?;
+        let mut id = 0;
         let carts = map
             .indices()
             .filter_map(|(row, col)| match map.get((row, col)) {
                 Some(&c) if "<>v^".contains(c) => {
-                    let cart = Some(Cart::new(row, col, Direction::new(c)));
+                    id += 1;
+                    let cart = Some(Cart::new(id, row, col, Direction::new(c)));
                     *map.get_mut((row, col)).unwrap() = match c {
                         '<' | '>' => '-',
                         'v' | '^' => '|',
@@ -143,8 +147,9 @@ impl std::fmt::Display for Railway {
 impl Railway {
     fn tick(&mut self) -> Option<(usize, usize)> {
         let mut crash = None;
-        let mut positions: HashSet<(usize, usize)> =
-            self.carts.iter().map(|c| c.position()).collect();
+        let mut positions: HashMap<(usize, usize), usize> =
+            self.carts.iter().map(|c| (c.position(), c.id)).collect();
+        let mut crashed = HashSet::new();
         self.carts
             .iter_mut()
             .sorted_by_key(|c| c.row)
@@ -157,11 +162,13 @@ impl Railway {
                     Right => (cart.row, cart.col + 1),
                 };
 
-                if let Some(_) = positions.get(&next) {
+                if let Some(&id) = positions.get(&next) {
+                    crashed.insert(id);
+                    crashed.insert(cart.id);
                     crash = Some(next);
                 }
                 positions.remove(&cart.position());
-                positions.insert(next);
+                positions.insert(next, cart.id);
                 cart.set_position(next);
 
                 cart.facing = match self.map.get(cart.position()) {
@@ -190,6 +197,8 @@ impl Railway {
                     _ => cart.facing,
                 };
             });
+
+        self.carts.retain(|cart| !crashed.contains(&cart.id));
         crash
     }
 }
@@ -215,5 +224,26 @@ fn test_first_crash() {
     assert_eq!(
         first_crash(&generate(include_str!("day13_example.txt"))),
         "7,3"
+    )
+}
+
+#[aoc(day13, part2)]
+fn survivor_cart(railway: &Railway) -> String {
+    let mut railway = (*railway).clone();
+    loop {
+        railway.tick();
+        if railway.carts.len() == 1 {
+            let location = railway.carts[0].position();
+            return format!("{},{}", location.1, location.0);
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_survivor_cart() {
+    assert_eq!(
+        survivor_cart(&generate(include_str!("day13_example2.txt"))),
+        "6,4"
     )
 }
