@@ -197,10 +197,10 @@ impl Game {
 
     fn successors_costed(&self, (row, col): (usize, usize)) -> Vec<((usize, usize), usize)> {
         [
-            ((row, col - 1), 1), // Left
-            ((row, col + 1), 1), // Right
             ((row - 1, col), 1), // Up
-            ((row + 1, col), 1), // Down
+            ((row, col - 1), 2), // Left
+            ((row, col + 1), 3), // Right
+            ((row + 1, col), 4), // Down
         ]
         .into_iter()
         .filter(|&(p, _)| matches!(self.map.get(p), Some(Cell::Empty)))
