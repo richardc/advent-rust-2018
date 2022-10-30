@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use itertools::{Either, Itertools};
-use pathfinding::prelude::{dijkstra, Matrix};
+use pathfinding::prelude::{bfs, bfs_reach, Matrix};
 
 type Health = u8;
 
@@ -111,6 +111,7 @@ impl std::str::FromStr for Game {
 impl std::fmt::Display for Game {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use Cell::*;
+        writeln!(f, "Round {}", self.round)?;
         for row in self.map.iter() {
             let mut mobs = vec![];
             for col in row {
@@ -129,13 +130,6 @@ impl std::fmt::Display for Game {
             writeln!(f)?;
         }
         Ok(())
-    }
-}
-
-fn reading_order(p1: (usize, usize), p2: (usize, usize)) -> Ordering {
-    match Ord::cmp(&p1.0, &p2.0) {
-        Ordering::Equal => Ord::cmp(&p1.1, &p2.1),
-        ord => ord,
     }
 }
 
@@ -181,21 +175,26 @@ impl Game {
                 .collect()
     }
 
-    fn successors(&self, (row, col): (usize, usize)) -> Vec<((usize, usize), usize)> {
+    fn successors(&self, (row, col): (usize, usize)) -> Vec<(usize, usize)> {
         [
-            ((row - 1, col), 1),
-            ((row + 1, col), 1),
-            ((row, col + 1), 1),
-            ((row, col - 1), 1),
+            (row, col + 1),
+            (row, col - 1),
+            (row - 1, col),
+            (row + 1, col),
         ]
         .into_iter()
-        .filter(|&(p, _)| matches!(self.map.get(p), Some(Cell::Empty)))
+        .filter(|&p| matches!(self.map.get(p), Some(Cell::Empty)))
         .collect()
     }
 
-    fn step(&mut self) {
-        self.round += 1;
+    fn reading_order(p1: (usize, usize), p2: (usize, usize)) -> Ordering {
+        match Ord::cmp(&p1.0, &p2.0) {
+            Ordering::Equal => Ord::cmp(&p1.1, &p2.1),
+            ord => ord,
+        }
+    }
 
+    fn step(&mut self) {
         let mut units = self
             .map
             .indices()
@@ -205,6 +204,9 @@ impl Game {
         units.reverse();
 
         while let Some(mut unit) = units.pop() {
+            if self.is_over() {
+                return;
+            }
             let mob = if let Some(&Cell::Mob(mob)) = self.map.get(unit) {
                 mob
             } else {
@@ -213,33 +215,39 @@ impl Game {
             let mut enemies = self.adjacent_enemies(unit, mob.force);
 
             if enemies.is_empty() {
-                // Move
-                let targets = self
-                    .map
-                    .dfs_reachable(unit, false, |p| {
-                        matches!(self.map.get(p), Some(Cell::Empty))
+                let targets = bfs_reach(unit, |&p| self.successors(p))
+                    .filter_map(|p| {
+                        if !self.adjacent_enemies(p, mob.force).is_empty() {
+                            Some(p)
+                        } else {
+                            None
+                        }
                     })
-                    .into_iter()
-                    .filter(|&p| !self.adjacent_enemies(p, mob.force).is_empty())
                     .collect_vec();
 
                 if targets.is_empty() {
                     continue;
                 }
 
-                let routes = targets
+                let route = targets
                     .iter()
-                    .filter_map(|p| dijkstra(&unit, |&l| self.successors(l), |l| l == p))
-                    .sorted_by(|a, b| match Ord::cmp(&a.1, &b.1) {
-                        Ordering::Equal => reading_order(a.0[1], b.0[1]),
+                    .filter_map(|&t| bfs(&unit, |&p| self.successors(p), |&p| p == t))
+                    .sorted_by(|a, b| match Ord::cmp(&a.len(), &b.len()) {
+                        Ordering::Equal => {
+                            match Self::reading_order(*a.last().unwrap(), *b.last().unwrap()) {
+                                Ordering::Equal => Self::reading_order(a[1], b[1]),
+                                ord => ord,
+                            }
+                        }
                         ord => ord,
                     })
-                    .collect_vec();
+                    .next()
+                    .unwrap();
 
-                let to = routes[0].0[1];
-                *self.map.get_mut(to).unwrap() = *self.map.get(unit).unwrap();
+                let step = route[1];
+                *self.map.get_mut(step).unwrap() = *self.map.get(unit).unwrap();
                 *self.map.get_mut(unit).unwrap() = Cell::Empty;
-                unit = to;
+                unit = step;
 
                 enemies = self.adjacent_enemies(unit, mob.force);
                 if enemies.is_empty() {
@@ -271,6 +279,8 @@ impl Game {
                 *self.map.get_mut(location).unwrap() = Cell::Mob(after);
             }
         }
+
+        self.round += 1;
     }
 }
 
@@ -281,7 +291,7 @@ fn generate(input: &str) -> Game {
 
 #[aoc(day15, part1)]
 fn solve(game: &Game) -> usize {
-    // println!("{}", game);
+    println!("{}", game);
     score(game)
 }
 
@@ -291,6 +301,7 @@ fn score(game: &Game) -> usize {
         game.step();
         // println!("{}", game);
     }
+    println!("{}", game);
     game.score()
 }
 
