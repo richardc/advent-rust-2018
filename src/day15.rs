@@ -165,6 +165,13 @@ impl Game {
         None
     }
 
+    fn elves(&self) -> usize {
+        self.map
+            .values()
+            .filter(|c| matches!(c, Cell::Mob(mob) if mob.force == Force::Elf))
+            .count()
+    }
+
     fn is_over(&self) -> bool {
         matches!(self.winning_team(), Some(_))
     }
@@ -278,7 +285,7 @@ mod game {
 }
 
 impl Game {
-    fn step(&mut self) {
+    fn step(&mut self, elfbuff: u8) {
         let mut units = self
             .map
             .indices()
@@ -316,7 +323,12 @@ impl Game {
                 .next()
                 .unwrap();
             let target = self.unit_at(location);
-            let after = target.take_damage(3);
+            let damage = if mob.force == Force::Elf {
+                3 + elfbuff
+            } else {
+                3
+            };
+            let after = target.take_damage(damage);
             if after.health == 0 {
                 *self.map.get_mut(location).unwrap() = Cell::Empty;
                 units.retain(|&p| location != p);
@@ -336,7 +348,7 @@ mod game_step {
     #[test]
     fn move_example() {
         let mut game = generate(include_str!("day15_example_move.txt"));
-        game.step();
+        game.step(0);
         game.soft_reset();
         assert_eq!(game, generate(include_str!("day15_example_move_2.txt")))
     }
@@ -349,17 +361,16 @@ fn generate(input: &str) -> Game {
 
 #[aoc(day15, part1)]
 fn solve(game: &Game) -> usize {
-    println!("{}", game);
+    // println!("{}", game);
     score(game)
 }
 
 fn score(game: &Game) -> usize {
     let mut game = (*game).clone();
     while !game.is_over() {
-        game.step();
+        game.step(0);
         // println!("{}", game);
     }
-    println!("{}", game);
     game.score()
 }
 
@@ -395,5 +406,38 @@ mod score {
     #[test]
     fn example6() {
         assert_eq!(score(&generate(include_str!("day15_example6.txt"))), 18740);
+    }
+}
+
+#[aoc(day15, part2)]
+fn solve2(game: &Game) -> usize {
+    elves_no_losses(game)
+}
+
+fn elves_no_losses(game: &Game) -> usize {
+    let starting_elves = game.elves();
+    'buffing: for buff in 1..255 {
+        let mut game = (*game).clone();
+        while !game.is_over() {
+            game.step(buff);
+            if game.elves() != starting_elves {
+                continue 'buffing;
+            }
+        }
+        return game.score();
+    }
+    unreachable!();
+}
+
+#[cfg(test)]
+mod elves_no_losses {
+    use super::*;
+
+    #[test]
+    fn example1() {
+        assert_eq!(
+            elves_no_losses(&generate(include_str!("day15_example1.txt"))),
+            4988
+        );
     }
 }
