@@ -1,7 +1,7 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashMap};
 
 use itertools::{Either, Itertools};
-use pathfinding::prelude::{bfs, bfs_reach, Matrix};
+use pathfinding::prelude::{build_path, dijkstra_all, Matrix};
 
 type Health = u8;
 
@@ -11,7 +11,7 @@ enum Force {
     Elf,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Unit {
     force: Force,
     health: Health,
@@ -26,6 +26,10 @@ impl Unit {
         let mut copy = *self;
         copy.health = copy.health.saturating_sub(damage);
         copy
+    }
+
+    fn heal(&mut self) {
+        self.health = 200
     }
 }
 
@@ -49,7 +53,7 @@ impl std::fmt::Debug for Unit {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum Cell {
     Empty,
     Wall,
@@ -91,7 +95,7 @@ impl std::fmt::Debug for Cell {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct Game {
     map: Matrix<Cell>,
     round: usize,
@@ -133,6 +137,12 @@ impl std::fmt::Display for Game {
     }
 }
 
+impl std::fmt::Debug for Game {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl Game {
     fn winning_team(&self) -> Option<Vec<Health>> {
         use Cell::*;
@@ -168,22 +178,32 @@ impl Game {
             * self.round
     }
 
-    fn adjacent_enemies(&self, (row, col): (usize, usize), force: Force) -> Vec<(usize, usize)> {
+    fn soft_reset(&mut self) {
+        self.round = 0;
+        for cell in self.map.iter_mut() {
+            match cell {
+                Cell::Mob(mob) => mob.heal(),
+                _ => {}
+            }
+        }
+    }
+
+    fn adjacent_enemies(&self, location: (usize, usize), force: Force) -> Vec<(usize, usize)> {
         self.map
-                .neighbours((row, col), false)
+                .neighbours(location, false)
                 .filter(|&cell| matches!(self.map.get(cell), Some(&Cell::Mob(other)) if other.force != force))
                 .collect()
     }
 
-    fn successors(&self, (row, col): (usize, usize)) -> Vec<(usize, usize)> {
+    fn successors_costed(&self, (row, col): (usize, usize)) -> Vec<((usize, usize), usize)> {
         [
-            (row, col + 1),
-            (row, col - 1),
-            (row - 1, col),
-            (row + 1, col),
+            ((row, col - 1), 1), // Left
+            ((row, col + 1), 1), // Right
+            ((row - 1, col), 1), // Up
+            ((row + 1, col), 1), // Down
         ]
         .into_iter()
-        .filter(|&p| matches!(self.map.get(p), Some(Cell::Empty)))
+        .filter(|&(p, _)| matches!(self.map.get(p), Some(Cell::Empty)))
         .collect()
     }
 
@@ -194,6 +214,70 @@ impl Game {
         }
     }
 
+    fn unit_at(&self, p: (usize, usize)) -> Unit {
+        match self.map.get(p) {
+            Some(&Cell::Mob(mob)) => mob,
+            _ => unreachable!(),
+        }
+    }
+
+    fn move_for(&self, location: (usize, usize)) -> Option<(usize, usize)> {
+        let mob = self.unit_at(location);
+        if !self.adjacent_enemies(location, mob.force).is_empty() {
+            // No need to move, we're in striking range
+            return None;
+        }
+
+        let reachable: HashMap<(usize, usize), ((usize, usize), usize)> =
+            dijkstra_all(&location, |&p| self.successors_costed(p));
+
+        let targets = reachable
+            .keys()
+            .filter(|&p| !self.adjacent_enemies(*p, mob.force).is_empty())
+            .collect_vec();
+
+        if targets.is_empty() {
+            // Cannot path adjacent to an enemy
+            return None;
+        }
+
+        let route = targets
+            .iter()
+            .map(|&t| build_path(t, &reachable))
+            .sorted_by(|a, b| match Ord::cmp(&a.len(), &b.len()) {
+                Ordering::Equal => {
+                    match Self::reading_order(*a.last().unwrap(), *b.last().unwrap()) {
+                        Ordering::Equal => Self::reading_order(a[1], b[1]),
+                        ord => ord,
+                    }
+                }
+                ord => ord,
+            })
+            .next()
+            .unwrap();
+
+        Some(route[1])
+    }
+}
+
+#[cfg(test)]
+mod game {
+    use super::*;
+    mod move_for {
+        use super::*;
+
+        #[test_case((1,1) => Some((1,2)))]
+        #[test_case((1,4) => Some((2,4)))]
+        #[test_case((1,7) => Some((1,6)))]
+        #[test_case((4,1) => Some((4,2)))]
+        fn example(location: (usize, usize)) -> Option<(usize, usize)> {
+            let game = generate(include_str!("day15_example_move.txt"));
+            game.move_for(location)
+        }
+    }
+}
+
+impl Game {
     fn step(&mut self) {
         let mut units = self
             .map
@@ -203,74 +287,35 @@ impl Game {
 
         units.reverse();
 
-        while let Some(mut unit) = units.pop() {
+        while let Some(mut location) = units.pop() {
             if self.is_over() {
                 return;
             }
-            let mob = if let Some(&Cell::Mob(mob)) = self.map.get(unit) {
-                mob
-            } else {
-                panic!()
-            };
-            let mut enemies = self.adjacent_enemies(unit, mob.force);
 
+            if let Some(step) = self.move_for(location) {
+                *self.map.get_mut(step).unwrap() = *self.map.get(location).unwrap();
+                *self.map.get_mut(location).unwrap() = Cell::Empty;
+                location = step;
+            }
+
+            let mob = self.unit_at(location);
+            let enemies = self.adjacent_enemies(location, mob.force);
             if enemies.is_empty() {
-                let targets = bfs_reach(unit, |&p| self.successors(p))
-                    .filter_map(|p| {
-                        if !self.adjacent_enemies(p, mob.force).is_empty() {
-                            Some(p)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect_vec();
-
-                if targets.is_empty() {
-                    continue;
-                }
-
-                let route = targets
-                    .iter()
-                    .filter_map(|&t| bfs(&unit, |&p| self.successors(p), |&p| p == t))
-                    .sorted_by(|a, b| match Ord::cmp(&a.len(), &b.len()) {
-                        Ordering::Equal => {
-                            match Self::reading_order(*a.last().unwrap(), *b.last().unwrap()) {
-                                Ordering::Equal => Self::reading_order(a[1], b[1]),
-                                ord => ord,
-                            }
-                        }
-                        ord => ord,
-                    })
-                    .next()
-                    .unwrap();
-
-                let step = route[1];
-                *self.map.get_mut(step).unwrap() = *self.map.get(unit).unwrap();
-                *self.map.get_mut(unit).unwrap() = Cell::Empty;
-                unit = step;
-
-                enemies = self.adjacent_enemies(unit, mob.force);
-                if enemies.is_empty() {
-                    continue;
-                }
+                continue;
             }
 
             // Attack
-            let health = enemies
-                .iter()
-                .map(|&p| match self.map.get(p) {
-                    Some(&Cell::Mob(unit)) => (p, unit),
-                    _ => unreachable!(),
+            let location = enemies
+                .into_iter()
+                .sorted_by(|&a, &b| {
+                    match Ord::cmp(&self.unit_at(a).health, &self.unit_at(b).health) {
+                        Ordering::Equal => Self::reading_order(a, b),
+                        ord => ord,
+                    }
                 })
-                .sorted_by_key(|&(_, mob)| mob.health)
-                .collect_vec();
-            let weakest = health[0].1.health;
-            let &(location, target) = health
-                .iter()
-                .filter(|(_, unit)| unit.health == weakest)
-                .sorted_by_key(|&(p, _)| p)
                 .next()
                 .unwrap();
+            let target = self.unit_at(location);
             let after = target.take_damage(3);
             if after.health == 0 {
                 *self.map.get_mut(location).unwrap() = Cell::Empty;
@@ -281,6 +326,19 @@ impl Game {
         }
 
         self.round += 1;
+    }
+}
+
+#[cfg(test)]
+mod game_step {
+    use super::*;
+
+    #[test]
+    fn move_example() {
+        let mut game = generate(include_str!("day15_example_move.txt"));
+        game.step();
+        game.soft_reset();
+        assert_eq!(game, generate(include_str!("day15_example_move_2.txt")))
     }
 }
 
