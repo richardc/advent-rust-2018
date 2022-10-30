@@ -28,6 +28,7 @@ impl Unit {
         copy
     }
 
+    #[allow(dead_code)] // used in tests
     fn heal(&mut self) {
         self.health = 200
     }
@@ -185,12 +186,12 @@ impl Game {
             * self.round
     }
 
+    #[allow(dead_code)] // used in tests
     fn soft_reset(&mut self) {
         self.round = 0;
         for cell in self.map.iter_mut() {
-            match cell {
-                Cell::Mob(mob) => mob.heal(),
-                _ => {}
+            if let Cell::Mob(mob) = cell {
+                mob.heal();
             }
         }
     }
