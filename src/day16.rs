@@ -1,130 +1,102 @@
 use itertools::Itertools;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
-type Number = u32;
+type Number = usize;
 
 type Instruction = [Number; 4];
 type Registers = [Number; 4];
 
+#[derive(Debug)]
 struct Check {
     before: Registers,
     after: Registers,
     instr: Instruction,
 }
 
-type Opcode = fn(&Registers, Number, Number, Number) -> Registers;
-
-fn addr(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize] + input[b as usize];
-    out
+#[derive(Clone, Copy, EnumIter)]
+enum Opcode {
+    Addr,
+    Addi,
+    Mulr,
+    Muli,
+    Banr,
+    Bani,
+    Borr,
+    Bori,
+    Setr,
+    Seti,
+    Gtir,
+    Gtri,
+    Gtrr,
+    Eqir,
+    Eqri,
+    Eqrr,
 }
 
-fn addi(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize] + b;
-    out
-}
+fn apply(opcode: Opcode, instr: &Instruction, r: &Registers) -> Registers {
+    let mut copy = *r;
+    let (a, b, c) = (instr[1], instr[2], instr[3]);
 
-fn mulr(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize] * input[b as usize];
-    out
-}
-
-fn muli(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize] * b;
-    out
-}
-
-fn banr(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize] & input[b as usize];
-    out
-}
-
-fn bani(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize] & b;
-    out
-}
-
-fn borr(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize] | input[b as usize];
-    out
-}
-
-fn bori(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize] | b;
-    out
-}
-
-fn setr(input: &Registers, a: Number, _b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = input[a as usize];
-    out
-}
-
-fn seti(input: &Registers, a: Number, _b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = a;
-    out
-}
-
-fn gtir(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = if a > input[b as usize] { 1 } else { 0 };
-    out
-}
-
-fn gtri(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = if input[a as usize] > b { 1 } else { 0 };
-    out
-}
-
-fn gtrr(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = if input[a as usize] > input[b as usize] {
-        1
-    } else {
-        0
+    use Opcode::*;
+    copy[c] = match opcode {
+        Addr => r[a] + r[b],
+        Addi => r[a] + b,
+        Mulr => r[a] * r[b],
+        Muli => r[a] * b,
+        Banr => r[a] & r[b],
+        Bani => r[a] & b,
+        Borr => r[a] | r[b],
+        Bori => r[a] | b,
+        Setr => r[a],
+        Seti => a,
+        Gtir => {
+            if a > r[b] {
+                1
+            } else {
+                0
+            }
+        }
+        Gtri => {
+            if r[a] > b {
+                1
+            } else {
+                0
+            }
+        }
+        Gtrr => {
+            if r[a] > r[b] {
+                1
+            } else {
+                0
+            }
+        }
+        Eqir => {
+            if a == r[b] {
+                1
+            } else {
+                0
+            }
+        }
+        Eqri => {
+            if r[a] == b {
+                1
+            } else {
+                0
+            }
+        }
+        Eqrr => {
+            if r[a] == r[b] {
+                1
+            } else {
+                0
+            }
+        }
     };
-    out
+    copy
 }
 
-fn eqir(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = if a == input[b as usize] { 1 } else { 0 };
-    out
-}
-
-fn eqri(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = if input[a as usize] == b { 1 } else { 0 };
-    out
-}
-
-fn eqrr(input: &Registers, a: Number, b: Number, c: Number) -> Registers {
-    let mut out = *input;
-    out[c as usize] = if input[a as usize] == input[b as usize] {
-        1
-    } else {
-        0
-    };
-    out
-}
-
-fn opcodes() -> Vec<Opcode> {
-    vec![
-        addr, addi, mulr, muli, banr, bani, borr, bori, setr, seti, gtir, gtri, gtrr, eqir, eqri,
-        eqrr,
-    ]
-}
-
-#[aoc_generator(day16)]
+#[aoc_generator(day16, part1)]
 fn generate(input: &str) -> Vec<Check> {
     let mut checks = vec![];
     for rec in input.lines().collect_vec().chunks(4) {
@@ -156,17 +128,8 @@ fn solve(checks: &[Check]) -> usize {
     checks
         .iter()
         .filter(|&check| {
-            opcodes()
-                .iter()
-                .filter(|opcode| {
-                    check.after
-                        == opcode(
-                            &check.before,
-                            check.instr[1],
-                            check.instr[2],
-                            check.instr[3],
-                        )
-                })
+            Opcode::iter()
+                .filter(|&opcode| check.after == apply(opcode, &check.instr, &check.before))
                 .count()
                 >= 3
         })
