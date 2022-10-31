@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use itertools::Itertools;
 use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use strum_macros::{Display, EnumIter};
 
 type Number = usize;
 
@@ -14,7 +16,7 @@ struct Check {
     instr: Instruction,
 }
 
-#[derive(Clone, Copy, EnumIter)]
+#[derive(Debug, Display, Clone, Copy, EnumIter, PartialEq)]
 enum Opcode {
     Addr,
     Addi,
@@ -134,4 +136,50 @@ fn solve(checks: &[Check]) -> usize {
                 >= 3
         })
         .count()
+}
+
+#[derive(Debug)]
+struct System {
+    checks: Vec<Check>,
+    program: Vec<Instruction>,
+}
+
+#[aoc_generator(day16, part2)]
+fn generate2(input: &str) -> System {
+    let (_, rest) = input.split_once("\n\n\n\n").unwrap();
+
+    System {
+        checks: generate(input),
+        program: rest
+            .lines()
+            .map(|l| {
+                l.split_ascii_whitespace()
+                    .map(|v| v.parse::<Number>().unwrap())
+                    .collect_vec()
+                    .try_into()
+                    .unwrap()
+            })
+            .collect_vec(),
+    }
+}
+
+#[aoc(day16, part2)]
+fn solve2(system: &System) -> Number {
+    let mut known: HashMap<usize, Opcode> = HashMap::new();
+    while known.len() != 16 {
+        for check in &system.checks {
+            let matching = Opcode::iter()
+                .filter(|op| !known.values().contains(op))
+                .filter(|op| check.after == apply(*op, &check.instr, &check.before))
+                .collect_vec();
+            if matching.len() == 1 {
+                known.insert(check.instr[0], matching[0]);
+            }
+        }
+    }
+
+    system.program.iter().fold([0; 4], |acc, instr| {
+        let opcode = known.get(&instr[0]).unwrap();
+        apply(*opcode, instr, &acc)
+    })[0]
 }
