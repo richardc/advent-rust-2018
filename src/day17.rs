@@ -164,6 +164,14 @@ impl Well {
             .filter(|&c| matches!(c, Cell::Reached | Cell::Water))
             .count()
     }
+
+    fn filled(&self) -> usize {
+        self.cells
+            .slice(s![self.min_row..=self.max_row, ..])
+            .iter()
+            .filter(|&c| matches!(c, Cell::Water))
+            .count()
+    }
 }
 
 #[aoc_generator(day17)]
@@ -177,6 +185,13 @@ fn solve(well: &Well) -> usize {
     well.drip();
     println!("{}", well);
     well.reached()
+}
+
+#[aoc(day17, part2)]
+fn solve2(well: &Well) -> usize {
+    let mut well = (*well).clone();
+    well.drip();
+    well.filled()
 }
 
 #[cfg(test)]
