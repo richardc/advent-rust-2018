@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::bail;
 use itertools::Itertools;
 use ndarray::prelude::*;
@@ -139,4 +141,33 @@ fn solve(wood: &Wood) -> usize {
 #[test]
 fn solve_example() {
     assert_eq!(solve(&generate(include_str!("day18_example.txt"))), 1147);
+}
+
+#[aoc(day18, part2)]
+fn solve2(start: &Wood) -> usize {
+    let mut wood = (*start).clone();
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    let target = 1_000_000_000;
+    let mut generation = 0;
+    let mut skipped = false;
+    while generation < target {
+        wood.tick();
+        generation += 1;
+        if skipped {
+            continue;
+        }
+
+        let view = format!("{}", wood);
+        if let Some(&when) = seen.get(&view) {
+            let stride = generation - when;
+            // found our loop; we can advance time
+            while generation + stride < target {
+                generation += stride;
+            }
+            skipped = true;
+        }
+        seen.insert(view, generation);
+    }
+    println!("{}", wood);
+    wood.value()
 }
