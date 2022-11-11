@@ -39,6 +39,10 @@ impl Walker {
     fn furthest(&self) -> usize {
         *self.visited.values().max().unwrap()
     }
+
+    fn far_away(&self, limit: usize) -> usize {
+        self.visited.values().filter(|&s| *s >= limit).count()
+    }
 }
 
 #[aoc(day20, part1)]
@@ -46,6 +50,13 @@ fn solve(s: &str) -> usize {
     let mut walker = Walker::default();
     walker.tour(s);
     walker.furthest()
+}
+
+#[aoc(day20, part2)]
+fn solve2(s: &str) -> usize {
+    let mut walker = Walker::default();
+    walker.tour(s);
+    walker.far_away(1_000)
 }
 
 #[cfg(test)]
