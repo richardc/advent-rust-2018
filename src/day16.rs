@@ -52,48 +52,12 @@ fn apply(opcode: Opcode, instr: &Instruction, r: &Registers) -> Registers {
         Bori => r[a] | b,
         Setr => r[a],
         Seti => a,
-        Gtir => {
-            if a > r[b] {
-                1
-            } else {
-                0
-            }
-        }
-        Gtri => {
-            if r[a] > b {
-                1
-            } else {
-                0
-            }
-        }
-        Gtrr => {
-            if r[a] > r[b] {
-                1
-            } else {
-                0
-            }
-        }
-        Eqir => {
-            if a == r[b] {
-                1
-            } else {
-                0
-            }
-        }
-        Eqri => {
-            if r[a] == b {
-                1
-            } else {
-                0
-            }
-        }
-        Eqrr => {
-            if r[a] == r[b] {
-                1
-            } else {
-                0
-            }
-        }
+        Gtir => usize::from(a > r[b]),
+        Gtri => usize::from(r[a] > b),
+        Gtrr => usize::from(r[a] > r[b]),
+        Eqir => usize::from(a == r[b]),
+        Eqri => usize::from(r[a] == b),
+        Eqrr => usize::from(r[a] == r[b]),
     };
     copy
 }

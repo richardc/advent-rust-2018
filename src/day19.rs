@@ -118,48 +118,12 @@ impl Cpu {
             Bori => self.registers[instr.a] | instr.b,
             Setr => self.registers[instr.a],
             Seti => instr.a,
-            Gtir => {
-                if instr.a > self.registers[instr.b] {
-                    1
-                } else {
-                    0
-                }
-            }
-            Gtri => {
-                if self.registers[instr.a] > instr.b {
-                    1
-                } else {
-                    0
-                }
-            }
-            Gtrr => {
-                if self.registers[instr.a] > self.registers[instr.b] {
-                    1
-                } else {
-                    0
-                }
-            }
-            Eqir => {
-                if instr.a == self.registers[instr.b] {
-                    1
-                } else {
-                    0
-                }
-            }
-            Eqri => {
-                if self.registers[instr.a] == instr.b {
-                    1
-                } else {
-                    0
-                }
-            }
-            Eqrr => {
-                if self.registers[instr.a] == self.registers[instr.b] {
-                    1
-                } else {
-                    0
-                }
-            }
+            Gtir => usize::from(instr.a > self.registers[instr.b]),
+            Gtri => usize::from(self.registers[instr.a] > instr.b),
+            Gtrr => usize::from(self.registers[instr.a] > self.registers[instr.b]),
+            Eqir => usize::from(instr.a == self.registers[instr.b]),
+            Eqri => usize::from(self.registers[instr.a] == instr.b),
+            Eqrr => usize::from(self.registers[instr.a] == self.registers[instr.b]),
         };
         self.pc = self.registers[self.pc_reg] as i32 + 1;
     }
