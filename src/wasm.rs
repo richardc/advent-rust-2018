@@ -141,8 +141,11 @@ impl Cpu {
     }
 
     pub fn run_till_pc(&mut self, target: usize) {
-        while !self.halted() && self.pc != target as i32 {
+        while !self.halted() {
             self.apply();
+            if self.pc == target as i32 {
+                return;
+            }
         }
     }
 }
