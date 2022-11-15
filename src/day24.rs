@@ -316,12 +316,30 @@ impl Battlefield {
         }
     }
 
-    fn play_to_win(&mut self) -> usize {
+    fn play_to_win(&mut self) -> Option<usize> {
+        let mut last_immune = self.immune_score();
+        let mut last_infect = self.infect_score();
         loop {
-            if let Some(score) = self.winning_score() {
-                return score;
-            }
             self.damage_round();
+
+            let immune = self.immune_score();
+            let infect = self.infect_score();
+            if last_immune == immune && last_infect == infect {
+                return None;
+            }
+            last_immune = immune;
+            last_infect = infect;
+            if let Some(score) = self.winning_score() {
+                return Some(score);
+            }
+        }
+    }
+
+    fn boost(&mut self, boost: usize) {
+        for squad in &mut self.squads {
+            if squad.force == Force::Immune {
+                squad.attack += boost;
+            }
         }
     }
 }
@@ -334,11 +352,33 @@ fn generate(s: &str) -> Battlefield {
 #[aoc(day24, part1)]
 fn solve(battlefield: &Battlefield) -> usize {
     let mut battlefield = (*battlefield).clone();
-    battlefield.play_to_win()
+    battlefield.play_to_win().unwrap()
 }
 
 #[cfg(test)]
 #[test]
 fn test_solve() {
     assert_eq!(solve(&generate(include_str!("day24_example.txt"))), 5216)
+}
+
+#[cfg(test)]
+#[test]
+fn test_boosted() {
+    let mut battlefield = generate(include_str!("day24_example.txt"));
+    battlefield.boost(1570);
+    assert_eq!(battlefield.play_to_win().unwrap(), 51);
+}
+
+#[aoc(day24, part2)]
+fn solve2(battlefield: &Battlefield) -> usize {
+    for boost in 1.. {
+        let mut game = (*battlefield).clone();
+        game.boost(boost);
+        if let Some(score) = game.play_to_win() {
+            if game.immune_score() > 0 {
+                return score;
+            }
+        }
+    }
+    unreachable!()
 }
